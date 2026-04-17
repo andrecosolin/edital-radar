@@ -32,6 +32,10 @@ const HEADERS = {
 const KEYWORD_RE =
   /edital|chamada|financiamento|sele[cç][aã]o\s+p[uú]blica|fomento/i;
 
+// Titles matching this pattern are noise: closed/administrative notices
+const NOISE_RE =
+  /resultado|retifica[cç][aã]o|preliminar|credenciamento|divulga[cç][aã]o|homologa[cç][aã]o/i;
+
 const XML_PARSER = new XMLParser({
   ignoreAttributes: false,
   cdataPropName: "__cdata",
@@ -347,12 +351,21 @@ async function scrapeCnpq() {
     const link = $(el).attr("href") || "";
 
     if (!title || title.length < 15 || seen.has(link)) return;
-    // Skip social-share wrappers (they duplicate hrefs with different text)
     if (/compartilhe|facebook|twitter|linkedin|whatsapp|copiar/i.test(title)) return;
+    if (NOISE_RE.test(title)) return;
 
     seen.add(link);
     opportunities.push({ source, title, description: "", url: link });
   });
+
+  // Fetch each chamada detail page to extract deadline
+  if (opportunities.length) {
+    console.log(`  Fetching deadlines for ${opportunities.length} CNPq chamadas …`);
+    const deadlines = await Promise.all(opportunities.map(({ url }) => fetchDeadline(url)));
+    for (let i = 0; i < opportunities.length; i++) {
+      opportunities[i].deadline = deadlines[i];
+    }
+  }
 
   log(source, opportunities.length);
   return opportunities;
@@ -382,21 +395,41 @@ async function scrapeFapesp() {
 }
 
 // ---------------------------------------------------------------------------
-// Source: EMBRAPII — RSS 2.0
+// Source: EMBRAPII — HTML transparencia page, chamadas section
 // ---------------------------------------------------------------------------
+// RSS feed returned the full history (2016-present) with no status markers.
+// The transparencia page has data-year attributes per item — only take 2025-2026.
 
-const EMBRAPII_RSS = "https://embrapii.org.br/chamadas-publicas/feed/";
+const EMBRAPII_TRANSP = "https://embrapii.org.br/transparencia/";
 
 async function scrapeEmbrapii() {
   const source = "EMBRAPII";
-  console.log(`\nScraping ${source} (RSS 2.0) …`);
-  const xml = await get(EMBRAPII_RSS);
-  if (!xml) { log(source, 0); return []; }
+  console.log(`\nScraping ${source} (transparencia HTML) …`);
+  const html = await get(EMBRAPII_TRANSP);
+  if (!html) { log(source, 0); return []; }
 
-  const items = parseFeed(xml);
-  const opportunities = items
-    .filter(({ url }) => isValidUrl(url))
-    .map(({ title, description, url }) => ({ source, title, description, url }));
+  const $ = load(html);
+  const opportunities = [];
+  const seen = new Set();
+
+  // Items carry data-year="YYYY" — restrict to recent years only
+  const currentYear = new Date().getFullYear();
+  const minYear = currentYear - 1; // current year and previous year
+
+  $("#chamadas .single-item-listagem").each((_, el) => {
+    const year = parseInt($(el).attr("data-year") || "0", 10);
+    if (year < minYear) return;
+
+    const linkEl = $(el).find("a.title-single-item-listagem");
+    const title = clean(linkEl.text());
+    const url = linkEl.attr("href") || "";
+
+    if (!title || !isValidUrl(url) || seen.has(url)) return;
+    if (NOISE_RE.test(title)) return;
+
+    seen.add(url);
+    opportunities.push({ source, title, description: "", url });
+  });
 
   log(source, opportunities.length);
   return opportunities;
@@ -412,17 +445,35 @@ const FAPERJ_RSS = "https://faperj.br/rss.php";
 
 async function scrapeFaperj() {
   const source = "FAPERJ";
-  console.log(`\nScraping ${source} (RSS) …`);
+  console.log(`\nScraping ${source} (RSS + status check) …`);
   const xml = await get(FAPERJ_RSS);
   if (!xml) { log(source, 0); return []; }
 
-  const items = parseFeed(xml);
-  const opportunities = items
+  const items = parseFeed(xml)
     .filter(({ title, description, url }) =>
-      isValidUrl(url) && KEYWORD_RE.test(`${title} ${description}`)
-    )
-    .map(({ title, description, url }) => ({ source, title, description, url }));
+      isValidUrl(url) &&
+      KEYWORD_RE.test(`${title} ${description}`) &&
+      !NOISE_RE.test(title)
+    );
 
+  if (!items.length) { log(source, 0); return []; }
+
+  // Fetch each page to confirm it's still open
+  console.log(`  Checking status for ${items.length} FAPERJ candidates …`);
+  const results = await Promise.all(
+    items.map(async ({ title, description, url }) => {
+      const html = await get(url);
+      if (!html) return null;
+      const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      // Must mention "aberta" somewhere on the page
+      if (!/aberta/i.test(text)) return null;
+      const dm = DEADLINE_RE.exec(text);
+      const deadline = dm ? clean(dm[1]) : "";
+      return { source, title, description, url, deadline };
+    })
+  );
+
+  const opportunities = results.filter(Boolean);
   log(source, opportunities.length);
   return opportunities;
 }
@@ -488,66 +539,55 @@ async function scrapeFapemig() {
 }
 
 // ---------------------------------------------------------------------------
-// Source: Fundação Araucária (FAPPR) — sitemap + per-page fetch
+// Source: Fundação Araucária (FAPPR) — /Programas-Abertos page
 // ---------------------------------------------------------------------------
-// Araucária publishes chamadas as news items. The sitemap (page 1, most recent
-// 2000 entries) is filtered for URLs whose slug contains "chamada" or "edital",
-// then the top 20 are fetched to extract the H1 title and deadline.
+// This page explicitly lists all currently open programs (CP, PI, PA, PMI).
+// Each program is an H3 heading like "CP 09/26: Interconexões Catalunha"
+// followed by a description paragraph that may contain a deadline.
+// Items without a parseable deadline are discarded per quality requirements.
 
-const ARAUCARIA_SITEMAP = "https://www.fappr.pr.gov.br/sitemap.xml?page=1";
+const ARAUCARIA_URL = "https://www.fappr.pr.gov.br/Programas-Abertos";
 
 async function scrapeAraucaria() {
   const source = "Araucária";
-  console.log(`\nScraping ${source} (sitemap) …`);
+  console.log(`\nScraping ${source} (Programas-Abertos) …`);
 
-  const xml = await get(ARAUCARIA_SITEMAP);
-  if (!xml) { log(source, 0); return []; }
+  const html = await get(ARAUCARIA_URL);
+  if (!html) { log(source, 0); return []; }
 
-  const candidateUrls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)]
-    .map((m) => m[1])
-    .filter((url) => {
-      const slug = url.split("/").pop() || "";
-      return /chamada|edital/i.test(slug);
-    })
-    .slice(0, 20); // sitemap is chronological desc — take the 20 most recent
+  const $ = load(html);
+  const opportunities = [];
+  const seen = new Set();
 
-  if (!candidateUrls.length) { log(source, 0); return []; }
+  $("h3").each((_, h3El) => {
+    const rawTitle = clean($(h3El).text());
+    // Must start with CP/PI/PA/PMI + number (e.g. "CP 09/26:", "PI 03/26:")
+    if (!/^(CP|PI|PA|PMI)\s+\d/i.test(rawTitle)) return;
+    if (NOISE_RE.test(rawTitle)) return;
+    if (seen.has(rawTitle)) return;
 
-  const pages = await Promise.all(
-    candidateUrls.map(async (url) => {
-      try {
-        const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10_000) });
-        if (!res.ok) return null;
-        const html = await res.text();
-        const $ = load(html);
+    // Collect sibling text until the next H3
+    let siblingText = "";
+    let node = $(h3El).next();
+    while (node.length && node[0].name !== "h3") {
+      siblingText += " " + node.text();
+      node = node.next();
+    }
 
-        // H1 on Araucária pages always returns the site name ("FUNDAÇÃO ARAUCÁRIA").
-        // Use <title> tag instead, stripping the " | Site Name" suffix.
-        let title = "";
-        const pageTitle = clean($("title").text());
-        if (pageTitle) {
-          title = pageTitle.split(/\s*[\|–—]\s*/)[0].trim();
-        }
-        // Fallback: derive from URL slug (e.g. "chamada-publica-xyz-2026")
-        if (!title || title.length < 15) {
-          const slug = url.split("/").pop() || "";
-          title = slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        }
-        if (!title || title.length < 15) return null;
-        if (!KEYWORD_RE.test(title)) return null;
+    const dm = DEADLINE_RE.exec(siblingText.replace(/\s+/g, " "));
+    const deadline = dm ? clean(dm[1]) : "";
+    if (!deadline) return; // discard items without a confirmed deadline
 
-        const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-        const dm = DEADLINE_RE.exec(text);
-        const deadline = dm ? clean(dm[1]) : "";
+    seen.add(rawTitle);
+    opportunities.push({
+      source,
+      title: rawTitle,
+      description: clean(siblingText).slice(0, 300),
+      url: ARAUCARIA_URL,
+      deadline,
+    });
+  });
 
-        return { source, title, description: "", url, deadline };
-      } catch {
-        return null;
-      }
-    })
-  );
-
-  const opportunities = pages.filter(Boolean);
   log(source, opportunities.length);
   return opportunities;
 }
@@ -587,8 +627,8 @@ async function fetchDeadline(url) {
 }
 
 async function enrichWithDeadlines(opportunities) {
-  // FINEP and Araucária already set deadlines during scraping — skip those
-  const alreadyEnriched = new Set(["FINEP", "Araucária"]);
+  // These sources already set deadlines during scraping — skip re-fetching
+  const alreadyEnriched = new Set(["FINEP", "Araucária", "CNPq", "FAPERJ"]);
   const toFetch = opportunities.map((opp) =>
     alreadyEnriched.has(opp.source) ? Promise.resolve("") : fetchDeadline(opp.url)
   );
@@ -621,10 +661,15 @@ async function main() {
       scrapeAraucaria(),
     ]);
 
-  const merged = [
+  const raw = [
     ...govbr, ...finep, ...bndes, ...cnpq, ...fapesp,
     ...embrapii, ...faperj, ...fapemig, ...araucaria,
   ].map((opp) => ({ ...opp, scraped_date: TODAY }));
+
+  // Global noise filter — remove closed/administrative notices from any source
+  const merged = raw.filter((opp) => !NOISE_RE.test(opp.title));
+  const noiseRemoved = raw.length - merged.length;
+  if (noiseRemoved > 0) console.log(`\n  Global noise filter removed ${noiseRemoved} item(s)`);
 
   const enriched = await enrichWithDeadlines(merged);
 
