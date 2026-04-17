@@ -3,9 +3,9 @@
  * POST { email } → adds contact to Resend Audience
  */
 
-import { Resend } from "resend";
+const { Resend } = require("resend");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
