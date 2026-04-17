@@ -1,14 +1,14 @@
 /**
  * scraper.js — Edital Radar
- * Sources: gov.br (RSS 1.0), FINEP (HTML), BNDES (HTML), CNPq (HTML), FAPESP (RSS 2.0)
+ * Sources: gov.br (RSS 1.0), FINEP (HTML), BNDES (HTML), CNPq (HTML), FAPESP (RSS 2.0),
+ *          EMBRAPII (RSS), FAPERJ (RSS), FAPEMIG (Nuxt payload), Araucária (sitemap)
  * Results saved as JSON in /data/<today>.json
  *
  * Requirements: Node 18+ (built-in fetch), cheerio, fast-xml-parser
  *   npm install cheerio fast-xml-parser
  *
- * Note on SEBRAE: https://www.sebrae.com.br/sites/PortalSebrae/ufs/rss returns 404
- * and the SEBRAE portal consistently blocks scrapers. FAPESP (Agência FAPESP RSS)
- * is used as the working public-funder RSS source in its place.
+ * Note on SEBRAE: portal consistently blocks all automated requests (timeout).
+ * Skipped intentionally — no public RSS or scrapable listing available.
  */
 
 import { load } from "cheerio";
@@ -382,6 +382,177 @@ async function scrapeFapesp() {
 }
 
 // ---------------------------------------------------------------------------
+// Source: EMBRAPII — RSS 2.0
+// ---------------------------------------------------------------------------
+
+const EMBRAPII_RSS = "https://embrapii.org.br/chamadas-publicas/feed/";
+
+async function scrapeEmbrapii() {
+  const source = "EMBRAPII";
+  console.log(`\nScraping ${source} (RSS 2.0) …`);
+  const xml = await get(EMBRAPII_RSS);
+  if (!xml) { log(source, 0); return []; }
+
+  const items = parseFeed(xml);
+  const opportunities = items
+    .filter(({ url }) => isValidUrl(url))
+    .map(({ title, description, url }) => ({ source, title, description, url }));
+
+  log(source, opportunities.length);
+  return opportunities;
+}
+
+// ---------------------------------------------------------------------------
+// Source: FAPERJ — RSS 2.0 news feed, keyword-filtered
+// ---------------------------------------------------------------------------
+// FAPERJ's portal is JS-rendered; their /rss.php is the only public feed.
+// Items are news articles — edital announcements appear here filtered by keyword.
+
+const FAPERJ_RSS = "https://faperj.br/rss.php";
+
+async function scrapeFaperj() {
+  const source = "FAPERJ";
+  console.log(`\nScraping ${source} (RSS) …`);
+  const xml = await get(FAPERJ_RSS);
+  if (!xml) { log(source, 0); return []; }
+
+  const items = parseFeed(xml);
+  const opportunities = items
+    .filter(({ title, description, url }) =>
+      isValidUrl(url) && KEYWORD_RE.test(`${title} ${description}`)
+    )
+    .map(({ title, description, url }) => ({ source, title, description, url }));
+
+  log(source, opportunities.length);
+  return opportunities;
+}
+
+// ---------------------------------------------------------------------------
+// Source: FAPEMIG — Nuxt payload JSON
+// ---------------------------------------------------------------------------
+// fapemig.br is a Nuxt 3 app. The open-chamadas page embeds a _payload.json
+// link in its HTML; that JSON array contains title+slug pairs for all open calls.
+
+const FAPEMIG_PAGE = "https://fapemig.br/oportunidades/chamadas-e-editais?status=aberta";
+
+async function scrapeFapemig() {
+  const source = "FAPEMIG";
+  console.log(`\nScraping ${source} (Nuxt payload) …`);
+
+  const html = await get(FAPEMIG_PAGE);
+  if (!html) { log(source, 0); return []; }
+
+  const payloadMatch = html.match(/href="([^"]*_payload\.json[^"]*)"/);
+  if (!payloadMatch) {
+    console.warn("  [WARN] FAPEMIG: could not find _payload.json link");
+    log(source, 0); return [];
+  }
+
+  const payloadUrl = "https://fapemig.br" + payloadMatch[1];
+  const payloadText = await get(payloadUrl);
+  if (!payloadText) { log(source, 0); return []; }
+
+  let data;
+  try { data = JSON.parse(payloadText); } catch {
+    console.warn("  [WARN] FAPEMIG: payload JSON parse failed");
+    log(source, 0); return [];
+  }
+
+  const opportunities = [];
+  const seen = new Set();
+
+  for (let i = 0; i < data.length - 1; i++) {
+    const title = data[i];
+    const slug  = data[i + 1];
+    if (typeof title !== "string" || typeof slug !== "string") continue;
+
+    // Title: chamada/edital keyword + year (avoids category names)
+    const isTitle = title.length > 15 && title.length < 200 &&
+                    KEYWORD_RE.test(title) && /20\d{2}/.test(title);
+    // Slug: lowercase + hyphens only, no spaces
+    const isSlug  = /^[a-z0-9][a-z0-9-]+$/.test(slug) && slug.includes("-") && slug.length > 10;
+
+    if (isTitle && isSlug && !seen.has(slug)) {
+      seen.add(slug);
+      opportunities.push({
+        source,
+        title,
+        description: "",
+        url: "https://fapemig.br/oportunidades/chamadas-e-editais/" + slug,
+      });
+    }
+  }
+
+  log(source, opportunities.length);
+  return opportunities;
+}
+
+// ---------------------------------------------------------------------------
+// Source: Fundação Araucária (FAPPR) — sitemap + per-page fetch
+// ---------------------------------------------------------------------------
+// Araucária publishes chamadas as news items. The sitemap (page 1, most recent
+// 2000 entries) is filtered for URLs whose slug contains "chamada" or "edital",
+// then the top 20 are fetched to extract the H1 title and deadline.
+
+const ARAUCARIA_SITEMAP = "https://www.fappr.pr.gov.br/sitemap.xml?page=1";
+
+async function scrapeAraucaria() {
+  const source = "Araucária";
+  console.log(`\nScraping ${source} (sitemap) …`);
+
+  const xml = await get(ARAUCARIA_SITEMAP);
+  if (!xml) { log(source, 0); return []; }
+
+  const candidateUrls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map((m) => m[1])
+    .filter((url) => {
+      const slug = url.split("/").pop() || "";
+      return /chamada|edital/i.test(slug);
+    })
+    .slice(0, 20); // sitemap is chronological desc — take the 20 most recent
+
+  if (!candidateUrls.length) { log(source, 0); return []; }
+
+  const pages = await Promise.all(
+    candidateUrls.map(async (url) => {
+      try {
+        const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10_000) });
+        if (!res.ok) return null;
+        const html = await res.text();
+        const $ = load(html);
+
+        // H1 on Araucária pages always returns the site name ("FUNDAÇÃO ARAUCÁRIA").
+        // Use <title> tag instead, stripping the " | Site Name" suffix.
+        let title = "";
+        const pageTitle = clean($("title").text());
+        if (pageTitle) {
+          title = pageTitle.split(/\s*[\|–—]\s*/)[0].trim();
+        }
+        // Fallback: derive from URL slug (e.g. "chamada-publica-xyz-2026")
+        if (!title || title.length < 15) {
+          const slug = url.split("/").pop() || "";
+          title = slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+        if (!title || title.length < 15) return null;
+        if (!KEYWORD_RE.test(title)) return null;
+
+        const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+        const dm = DEADLINE_RE.exec(text);
+        const deadline = dm ? clean(dm[1]) : "";
+
+        return { source, title, description: "", url, deadline };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const opportunities = pages.filter(Boolean);
+  log(source, opportunities.length);
+  return opportunities;
+}
+
+// ---------------------------------------------------------------------------
 // Deadline extraction — fetch each edital page and look for a date
 // ---------------------------------------------------------------------------
 
@@ -416,15 +587,16 @@ async function fetchDeadline(url) {
 }
 
 async function enrichWithDeadlines(opportunities) {
-  // FINEP entries are already enriched by scrapeFinep(); skip them here
+  // FINEP and Araucária already set deadlines during scraping — skip those
+  const alreadyEnriched = new Set(["FINEP", "Araucária"]);
   const toFetch = opportunities.map((opp) =>
-    opp.source === "FINEP" ? Promise.resolve("") : fetchDeadline(opp.url)
+    alreadyEnriched.has(opp.source) ? Promise.resolve("") : fetchDeadline(opp.url)
   );
-  console.log(`\nFetching deadlines for non-FINEP opportunities …`);
+  const nonEnriched = opportunities.filter((o) => !alreadyEnriched.has(o.source)).length;
+  if (nonEnriched > 0) console.log(`\nFetching deadlines for ${nonEnriched} opportunities …`);
   const deadlines = await Promise.all(toFetch);
   return opportunities.map((opp, i) => ({
     ...opp,
-    // Don't overwrite a deadline already set by scrapeFinep()
     deadline: opp.deadline !== undefined ? opp.deadline : deadlines[i],
   }));
 }
@@ -436,18 +608,23 @@ async function enrichWithDeadlines(opportunities) {
 async function main() {
   console.log(`=== Edital Radar — ${TODAY} ===`);
 
-  const [govbr, finep, bndes, cnpq, fapesp] = await Promise.all([
-    scrapeGovBr(),
-    scrapeFinep(),
-    scrapeBndes(),
-    scrapeCnpq(),
-    scrapeFapesp(),
-  ]);
+  const [govbr, finep, bndes, cnpq, fapesp, embrapii, faperj, fapemig, araucaria] =
+    await Promise.all([
+      scrapeGovBr(),
+      scrapeFinep(),
+      scrapeBndes(),
+      scrapeCnpq(),
+      scrapeFapesp(),
+      scrapeEmbrapii(),
+      scrapeFaperj(),
+      scrapeFapemig(),
+      scrapeAraucaria(),
+    ]);
 
-  const merged = [...govbr, ...finep, ...bndes, ...cnpq, ...fapesp].map((opp) => ({
-    ...opp,
-    scraped_date: TODAY,
-  }));
+  const merged = [
+    ...govbr, ...finep, ...bndes, ...cnpq, ...fapesp,
+    ...embrapii, ...faperj, ...fapemig, ...araucaria,
+  ].map((opp) => ({ ...opp, scraped_date: TODAY }));
 
   const enriched = await enrichWithDeadlines(merged);
 
@@ -468,13 +645,20 @@ async function main() {
   writeFileSync(outPath, JSON.stringify(active, null, 2), "utf-8");
 
   console.log(`\n===== RESULTS =====`);
-  console.log(`  gov.br : ${govbr.length}`);
-  console.log(`  FINEP  : ${finep.length}`);
-  console.log(`  BNDES  : ${bndes.length}`);
-  console.log(`  CNPq   : ${cnpq.length}`);
-  console.log(`  FAPESP : ${fapesp.length}`);
-  console.log(`  After deadline filter: ${active.length} / ${enriched.length}`);
-  console.log(`  Saved  : ${outPath}`);
+  console.log(`  gov.br    : ${govbr.length}`);
+  console.log(`  FINEP     : ${finep.length}`);
+  console.log(`  BNDES     : ${bndes.length}`);
+  console.log(`  CNPq      : ${cnpq.length}`);
+  console.log(`  FAPESP    : ${fapesp.length}`);
+  console.log(`  EMBRAPII  : ${embrapii.length}`);
+  console.log(`  FAPERJ    : ${faperj.length}`);
+  console.log(`  FAPEMIG   : ${fapemig.length}`);
+  console.log(`  Araucária : ${araucaria.length}`);
+  console.log(`  SEBRAE    : 0 (blocked)`);
+  console.log(`  ----------`);
+  console.log(`  Raw total       : ${enriched.length}`);
+  console.log(`  After filtering : ${active.length}`);
+  console.log(`  Saved           : ${outPath}`);
 }
 
 main().catch((err) => {
