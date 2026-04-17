@@ -52,6 +52,40 @@ function isValidUrl(url) {
   return typeof url === "string" && url.startsWith("http");
 }
 
+const MONTH_MAP = {
+  janeiro: 0, fevereiro: 1, "março": 2, marco: 2, abril: 3, maio: 4,
+  junho: 5, julho: 6, agosto: 7, setembro: 8, outubro: 9, novembro: 10, dezembro: 11,
+};
+
+/**
+ * Parse a deadline string into a Date object.
+ * Handles "DD/MM/YYYY", "DD/MM/YY", and "DD de mês de YYYY".
+ * Returns null if the format isn't recognised.
+ */
+function parseDeadlineDate(str) {
+  if (!str) return null;
+
+  // DD/MM/YYYY or DD/MM/YY
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slashMatch) {
+    let [, d, m, y] = slashMatch.map(Number);
+    if (y < 100) y += 2000;
+    return new Date(y, m - 1, d);
+  }
+
+  // DD de mês de YYYY  (e.g. "30 de setembro de 2026")
+  const longMatch = str.match(/^(\d{1,2})\s+de\s+(\w+)(?:\s+de\s+(\d{4}))?$/i);
+  if (longMatch) {
+    const d = parseInt(longMatch[1], 10);
+    const m = MONTH_MAP[longMatch[2].toLowerCase()];
+    const y = longMatch[3] ? parseInt(longMatch[3], 10) : new Date().getFullYear();
+    if (m === undefined) return null;
+    return new Date(y, m, d);
+  }
+
+  return null;
+}
+
 async function get(url) {
   try {
     const res = await fetch(url, {
@@ -165,13 +199,14 @@ async function scrapeGovBr() {
 const FINEP_URL = "https://www.finep.gov.br/chamadas-publicas";
 
 /**
- * Fetch a single FINEP chamada page and extract deadline, budget, target_audience.
+ * Fetch a single FINEP chamada page and extract situacao, deadline, budget, target_audience.
  * Labels and values share the same parent element, e.g.:
+ *   <p>Situacão: Aberta</p>
  *   <p>Orçamento da chamada: R$ 300 milhões</p>
  */
 async function fetchFinepDetails(url) {
   const html = await get(url);
-  if (!html) return { deadline: "", budget: "", target_audience: "" };
+  if (!html) return { situacao: "", deadline: "", budget: "", target_audience: "" };
 
   const $ = load(html);
 
@@ -180,7 +215,6 @@ async function fetchFinepDetails(url) {
     $("*").each((_, el) => {
       const ownText = $(el).clone().children().remove().end().text().trim();
       if (ownText === labelText) {
-        // Value is in the same parent element, after the label
         const parentText = clean($(el).parent().text());
         value = parentText.replace(labelText, "").trim();
         return false; // break
@@ -189,7 +223,11 @@ async function fetchFinepDetails(url) {
     return value;
   }
 
+  // "Situacão:" uses a variant encoding — match both ç and c+combining cedilla
+  const situacao = extractAfterLabel("Situacão:") || extractAfterLabel("Situação:");
+
   return {
+    situacao,
     deadline: extractAfterLabel("Prazo para envio de propostas até:"),
     budget: extractAfterLabel("Orçamento da chamada:"),
     target_audience: extractAfterLabel("Público-alvo:"),
@@ -230,13 +268,18 @@ async function scrapeFinep() {
     });
   }
 
-  // Enrich each chamada with deadline, budget, target_audience in parallel
+  // Enrich each chamada with situacao, deadline, budget, target_audience in parallel
   console.log(`  Fetching details for ${opportunities.length} FINEP chamadas …`);
   const details = await Promise.all(opportunities.map(({ url }) => fetchFinepDetails(url)));
   const enriched = opportunities.map((opp, i) => ({ ...opp, ...details[i] }));
 
-  log(source, enriched.length);
-  return enriched;
+  // Discard closed chamadas immediately
+  const open = enriched.filter((opp) => !/encerrada/i.test(opp.situacao));
+  const closedCount = enriched.length - open.length;
+  if (closedCount > 0) console.log(`  Discarded ${closedCount} FINEP chamada(s) with Situação=Encerrada`);
+
+  log(source, open.length);
+  return open;
 }
 
 // ---------------------------------------------------------------------------
@@ -406,10 +449,23 @@ async function main() {
     scraped_date: TODAY,
   }));
 
-  const all = await enrichWithDeadlines(merged);
+  const enriched = await enrichWithDeadlines(merged);
+
+  // Filter out items with a known deadline that has already passed
+  const todayDate = new Date(TODAY);
+  const active = enriched.filter((opp) => {
+    if (!opp.deadline) return true; // no deadline info — keep it
+    const parsed = parseDeadlineDate(opp.deadline);
+    if (!parsed) return true; // couldn't parse — keep it
+    return parsed >= todayDate;
+  });
+
+  const expiredCount = enriched.length - active.length;
+  if (expiredCount > 0)
+    console.log(`\n  Filtered out ${expiredCount} item(s) with expired deadlines`);
 
   const outPath = resolve(DATA_DIR, `${TODAY}.json`);
-  writeFileSync(outPath, JSON.stringify(all, null, 2), "utf-8");
+  writeFileSync(outPath, JSON.stringify(active, null, 2), "utf-8");
 
   console.log(`\n===== RESULTS =====`);
   console.log(`  gov.br : ${govbr.length}`);
@@ -417,7 +473,7 @@ async function main() {
   console.log(`  BNDES  : ${bndes.length}`);
   console.log(`  CNPq   : ${cnpq.length}`);
   console.log(`  FAPESP : ${fapesp.length}`);
-  console.log(`  TOTAL  : ${all.length}`);
+  console.log(`  After deadline filter: ${active.length} / ${enriched.length}`);
   console.log(`  Saved  : ${outPath}`);
 }
 
