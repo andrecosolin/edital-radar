@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Edital Radar — Nunca perca um edital de fomento</title>
-  <meta name="description" content="Toda semana, as melhores oportunidades de financiamento público para startups, pesquisadores e pequenas empresas brasileiras — direto no seu email. Grátis." />
+  <title>Edital Radar: financiamento público para startups e pesquisadores</title>
+  <meta name="description" content="Toda semana os melhores editais de FINEP, CNPq, FAPESP e BNDES com contexto real sobre quem deve se inscrever e por que." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -26,7 +26,7 @@
       line-height: 1.6;
     }
 
-    /* ── Nav ── */
+    /* Nav */
     nav {
       background: var(--primary);
       padding: 16px 24px;
@@ -41,7 +41,7 @@
     }
     .nav-logo span { color: #93c5fd; }
 
-    /* ── Hero ── */
+    /* Hero */
     .hero {
       background: linear-gradient(160deg, var(--primary) 0%, #1e5f8e 100%);
       color: var(--white);
@@ -52,18 +52,18 @@
       font-size: clamp(26px, 5vw, 42px);
       font-weight: 800;
       line-height: 1.2;
-      max-width: 640px;
+      max-width: 680px;
       margin: 0 auto 20px;
     }
     .hero p {
       font-size: clamp(15px, 2.5vw, 18px);
       color: #bfdbfe;
-      max-width: 540px;
+      max-width: 560px;
       margin: 0 auto 36px;
       line-height: 1.7;
     }
 
-    /* ── Form ── */
+    /* Form */
     .form-wrap {
       max-width: 480px;
       margin: 0 auto;
@@ -99,8 +99,20 @@
     .form-row button:hover { background: #1a6fbf; }
     .form-row button:disabled { background: #60a5fa; cursor: not-allowed; }
 
+    .form-hint {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #93c5fd;
+      text-align: center;
+    }
+    .form-hint-dark {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+    }
     .form-msg {
-      margin-top: 12px;
+      margin-top: 10px;
       font-size: 14px;
       min-height: 20px;
       text-align: center;
@@ -108,7 +120,7 @@
     .form-msg.success { color: #86efac; }
     .form-msg.error   { color: #fca5a5; }
 
-    /* ── Trust badges ── */
+    /* Trust badges */
     .badges {
       display: flex;
       flex-wrap: wrap;
@@ -125,7 +137,7 @@
       border-radius: 999px;
     }
 
-    /* ── Preview section ── */
+    /* Preview section */
     .preview {
       padding: 64px 24px;
       max-width: 720px;
@@ -189,7 +201,7 @@
     }
     .card-link:hover { text-decoration: underline; }
 
-    /* ── CTA bottom ── */
+    /* CTA bottom */
     .cta-bottom {
       background: var(--primary);
       color: var(--white);
@@ -202,7 +214,7 @@
       margin-bottom: 24px;
     }
 
-    /* ── Footer ── */
+    /* Footer */
     footer {
       background: #111827;
       color: #6b7280;
@@ -211,7 +223,7 @@
       padding: 20px 24px;
     }
 
-    /* ── Mobile ── */
+    /* Mobile */
     @media (max-width: 480px) {
       .form-row { flex-direction: column; border-radius: 8px; }
       .form-row input[type="email"],
@@ -229,14 +241,15 @@
 
   <!-- Hero -->
   <section class="hero">
-    <h1>Nunca perca um edital de fomento</h1>
-    <p>Toda semana, as melhores oportunidades de financiamento público para startups, pesquisadores e pequenas empresas brasileiras — direto no seu email. Grátis.</p>
+    <h1>Financiamento público que a sua startup provavelmente não sabia que existia.</h1>
+    <p>Toda semana os melhores editais de FINEP, CNPq, FAPESP e BNDES com contexto real sobre quem deve se inscrever e por que.</p>
 
     <div class="form-wrap">
       <div class="form-row">
         <input type="email" id="email-input" placeholder="seu@email.com" autocomplete="email" />
-        <button id="subscribe-btn" type="button">Quero receber grátis</button>
+        <button id="subscribe-btn" type="button">Quero receber toda segunda-feira</button>
       </div>
+      <p class="form-hint">Gratuito. Sem spam. Cancele quando quiser.</p>
       <div class="form-msg" id="form-msg"></div>
     </div>
 
@@ -253,7 +266,7 @@
     <h2>Veja o que você receberia essa semana</h2>
 
     <div class="card">
-      <div class="card-title">Finep Mais Inovação Brasil – Rodada 2 – Cadeias Agroindustriais Sustentáveis</div>
+      <div class="card-title">Finep Mais Inovação Brasil, Rodada 2: Cadeias Agroindustriais Sustentáveis</div>
       <div class="card-pills">
         <span class="pill">Fonte: FINEP</span>
         <span class="pill">Prazo: não informado</span>
@@ -279,8 +292,9 @@
     <div class="form-wrap" style="margin: 0 auto; max-width: 480px;">
       <div class="form-row">
         <input type="email" id="email-input-2" placeholder="seu@email.com" autocomplete="email" />
-        <button id="subscribe-btn-2" type="button">Quero receber grátis</button>
+        <button id="subscribe-btn-2" type="button">Quero receber toda segunda-feira</button>
       </div>
+      <p class="form-hint-dark">Gratuito. Sem spam. Cancele quando quiser.</p>
       <div class="form-msg" id="form-msg-2"></div>
     </div>
   </section>
@@ -301,7 +315,7 @@
       }
 
       btn.disabled = true;
-      btn.textContent = "Enviando…";
+      btn.textContent = "Enviando...";
       msgEl.textContent = "";
       msgEl.className = "form-msg";
 
@@ -314,7 +328,7 @@
         const data = await res.json();
 
         if (res.ok && data.success) {
-          msgEl.textContent = "🎉 Inscrito! Você receberá a próxima edição na segunda-feira.";
+          msgEl.textContent = "Inscrito! Você receberá a próxima edição na segunda-feira.";
           msgEl.className = "form-msg success";
           emailInput.value = "";
           btn.textContent = "Inscrito ✓";
@@ -325,7 +339,7 @@
         msgEl.textContent = err.message;
         msgEl.className = "form-msg error";
         btn.disabled = false;
-        btn.textContent = "Quero receber grátis";
+        btn.textContent = "Quero receber toda segunda-feira";
       }
     }
 
