@@ -159,10 +159,42 @@ async function scrapeGovBr() {
 }
 
 // ---------------------------------------------------------------------------
-// Source: FINEP — HTML table scrape
+// Source: FINEP — HTML table scrape + per-chamada detail fetch
 // ---------------------------------------------------------------------------
 
 const FINEP_URL = "https://www.finep.gov.br/chamadas-publicas";
+
+/**
+ * Fetch a single FINEP chamada page and extract deadline, budget, target_audience.
+ * Labels and values share the same parent element, e.g.:
+ *   <p>Orçamento da chamada: R$ 300 milhões</p>
+ */
+async function fetchFinepDetails(url) {
+  const html = await get(url);
+  if (!html) return { deadline: "", budget: "", target_audience: "" };
+
+  const $ = load(html);
+
+  function extractAfterLabel(labelText) {
+    let value = "";
+    $("*").each((_, el) => {
+      const ownText = $(el).clone().children().remove().end().text().trim();
+      if (ownText === labelText) {
+        // Value is in the same parent element, after the label
+        const parentText = clean($(el).parent().text());
+        value = parentText.replace(labelText, "").trim();
+        return false; // break
+      }
+    });
+    return value;
+  }
+
+  return {
+    deadline: extractAfterLabel("Prazo para envio de propostas até:"),
+    budget: extractAfterLabel("Orçamento da chamada:"),
+    target_audience: extractAfterLabel("Público-alvo:"),
+  };
+}
 
 async function scrapeFinep() {
   const source = "FINEP";
@@ -182,9 +214,8 @@ async function scrapeFinep() {
       const title = clean(linkEl.text() || cols.first().text());
       let link = linkEl.attr("href") || "";
       if (link && !link.startsWith("http")) link = "https://www.finep.gov.br" + link;
-      const deadline = cols.length > 1 ? clean(cols.last().text()) : "";
       if (title && isValidUrl(link))
-        opportunities.push({ source, title, description: deadline ? `Prazo: ${deadline}` : "", url: link });
+        opportunities.push({ source, title, description: "", url: link });
     });
   } else {
     $("div.item, li.chamada, article").each((_, el) => {
@@ -199,8 +230,13 @@ async function scrapeFinep() {
     });
   }
 
-  log(source, opportunities.length);
-  return opportunities;
+  // Enrich each chamada with deadline, budget, target_audience in parallel
+  console.log(`  Fetching details for ${opportunities.length} FINEP chamadas …`);
+  const details = await Promise.all(opportunities.map(({ url }) => fetchFinepDetails(url)));
+  const enriched = opportunities.map((opp, i) => ({ ...opp, ...details[i] }));
+
+  log(source, enriched.length);
+  return enriched;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +339,54 @@ async function scrapeFapesp() {
 }
 
 // ---------------------------------------------------------------------------
+// Deadline extraction — fetch each edital page and look for a date
+// ---------------------------------------------------------------------------
+
+const MONTHS =
+  "janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro";
+
+const DEADLINE_RE = new RegExp(
+  // trigger keyword
+  "(?:prazo|inscri[cç][oõ]es?\\s+at[eé]|submiss[aã]o\\s+at[eé]|encerramento|data[\\s\\-]limite)" +
+  // up to 150 chars of anything (non-greedy)
+  "[\\s\\S]{0,150}?" +
+  // date: "DD de mês de YYYY" or "DD/MM/YYYY" or "DD/MM/YY"
+  `(\\d{1,2}\\s+de\\s+(?:${MONTHS})(?:\\s+de\\s+\\d{2,4})?|\\d{1,2}/\\d{1,2}/\\d{2,4})`,
+  "i"
+);
+
+async function fetchDeadline(url) {
+  try {
+    const res = await fetch(url, {
+      headers: HEADERS,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return "";
+    const html = await res.text();
+    // Strip tags and collapse whitespace for clean text search
+    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const m = DEADLINE_RE.exec(text);
+    return m ? clean(m[1]) : "";
+  } catch {
+    return "";
+  }
+}
+
+async function enrichWithDeadlines(opportunities) {
+  // FINEP entries are already enriched by scrapeFinep(); skip them here
+  const toFetch = opportunities.map((opp) =>
+    opp.source === "FINEP" ? Promise.resolve("") : fetchDeadline(opp.url)
+  );
+  console.log(`\nFetching deadlines for non-FINEP opportunities …`);
+  const deadlines = await Promise.all(toFetch);
+  return opportunities.map((opp, i) => ({
+    ...opp,
+    // Don't overwrite a deadline already set by scrapeFinep()
+    deadline: opp.deadline !== undefined ? opp.deadline : deadlines[i],
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -317,10 +401,12 @@ async function main() {
     scrapeFapesp(),
   ]);
 
-  const all = [...govbr, ...finep, ...bndes, ...cnpq, ...fapesp].map((opp) => ({
+  const merged = [...govbr, ...finep, ...bndes, ...cnpq, ...fapesp].map((opp) => ({
     ...opp,
     scraped_date: TODAY,
   }));
+
+  const all = await enrichWithDeadlines(merged);
 
   const outPath = resolve(DATA_DIR, `${TODAY}.json`);
   writeFileSync(outPath, JSON.stringify(all, null, 2), "utf-8");

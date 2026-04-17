@@ -57,10 +57,16 @@ const SYSTEM_PROMPT = `Você é editor de uma newsletter chamada Edital Radar, v
 
 Para cada oportunidade fornecida, retorne um objeto JSON com exatamente estes campos:
 - "title": título da chamada (string, em português se possível)
-- "source": nome da fonte exatamente como aparece no campo "source" do input (string)
-- "deadline": prazo de submissão em português, ex: "30 de abril de 2026". Se não houver nenhuma informação de prazo nos dados fornecidos, escreva exatamente "Prazo não informado". Nunca escreva "consulte o edital" ou qualquer variação disso.
+- "source": copie exatamente o campo "source" do input (string)
+- "deadline": copie exatamente o campo "deadline" do input. Se estiver vazio (""), mantenha vazio. Nunca invente prazo, nunca escreva "consulte o edital".
+- "budget": copie exatamente o campo "budget" do input. Se estiver vazio ou ausente, use "".
+- "target_audience": copie exatamente o campo "target_audience" do input. Se estiver vazio ou ausente, use "".
 - "description": um parágrafo curto (2-4 frases) explicando o que é a oportunidade, por que vale atenção e quem deveria se inscrever (string)
-- "url": a URL original da oportunidade, copiada exatamente do campo "url" do input (string)
+- "url": copie exatamente o campo "url" do input (string)
+
+Regras de exibição (aplique na "description" e nos campos acima):
+- Se "budget" não estiver vazio, mencione o orçamento na description como informação de destaque.
+- Nunca mostre campos vazios no texto final.
 
 Retorne APENAS um array JSON válido contendo todos os objetos. Sem texto antes ou depois. Sem markdown code fences. Sem comentários.`;
 
