@@ -1,0 +1,66 @@
+[
+  {
+    "source": "FINEP",
+    "title": "Finep Mais Inovação Brasil – Rodada 2 – Cadeias Agroindustriais Sustentáveis",
+    "description": "",
+    "url": "https://www.finep.gov.br/chamadas-publicas/chamadapublica/774",
+    "deadline": "30/09/2026",
+    "budget": "R$ 300 milhões",
+    "target_audience": "Empresas",
+    "scraped_date": "2026-04-17"
+  },
+  {
+    "source": "FINEP",
+    "title": "Finep Mais Inovação Brasil – Rodada 2 - Base Industrial de Defesa",
+    "description": "",
+    "url": "https://www.finep.gov.br/chamadas-publicas/chamadapublica/775",
+    "deadline": "30/09/2026",
+    "budget": "R$ 300 milhões",
+    "target_audience": "Empresas",
+    "scraped_date": "2026-04-17"
+  },
+  {
+    "source": "FINEP",
+    "title": "Cadeias Socioprodutivas da Agricultura Familiar e Sistemas Agroalimentares - Empresas",
+    "description": "",
+    "url": "https://www.finep.gov.br/chamadas-publicas/chamadapublica/740",
+    "deadline": "03/09/2024",
+    "budget": "",
+    "target_audience": "Empresas",
+    "scraped_date": "2026-04-17"
+  },
+  {
+    "source": "FINEP",
+    "title": "PRÓ-INFRA CENTROS TEMÁTICOS - Implantação e melhoria da infraestrutura de pesquisa para solucionar desafios em áreas temáticas críticas",
+    "description": "",
+    "url": "https://www.finep.gov.br/chamadas-publicas/chamadapublica/719",
+    "deadline": "03/05/2024",
+    "budget": "",
+    "target_audience": "ICTs | Empresas",
+    "scraped_date": "2026-04-17"
+  },
+  {
+    "source": "CNPq",
+    "title": "Chamada Pública MCTI/CNPq Nº 02/2026 Programa de Cooperação Latino-Americana e Caribenha em Ciência, Tecnologia e Inovação - PROSUL Pepe Mujica",
+    "description": "",
+    "url": "https://www.gov.br/cnpq/pt-br/chamadas/todas-as-chamadas/chamadas-2026/chamada-no-02-2026/chamada-publica-mcti-cnpq-no-02-2026-programa-de-cooperacao-latino-americana-e-caribenha-em-ciencia-tecnologia-e-inovacao-prosul-pepe-mujica",
+    "scraped_date": "2026-04-17",
+    "deadline": ""
+  },
+  {
+    "source": "CNPq",
+    "title": "Retificação nº 01",
+    "description": "",
+    "url": "https://www.gov.br/cnpq/pt-br/chamadas/todas-as-chamadas/chamadas-2026/chamada-no-02-2026/RETIFICAO01PepeMujicaSEI_CNPq2656315ChamadaPblica.pdf",
+    "scraped_date": "2026-04-17",
+    "deadline": ""
+  },
+  {
+    "source": "CNPq",
+    "title": "Chamada Nº 28/2025 - Apoio a Projetos de Cooperação CNPq-TUBITAK",
+    "description": "",
+    "url": "https://www.gov.br/cnpq/pt-br/chamadas/todas-as-chamadas/chamadas-2025/chamada-no-28-2025/chamada-no-28-2025-apoio-a-projetos-de-cooperacao-cnpq-tubitak",
+    "scraped_date": "2026-04-17",
+    "deadline": ""
+  }
+]
