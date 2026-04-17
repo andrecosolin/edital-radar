@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edital Radar — Nunca perca um edital de fomento</title>
+  <meta name="description" content="Toda semana, as melhores oportunidades de financiamento público para startups, pesquisadores e pequenas empresas brasileiras — direto no seu email. Grátis." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #1a3a5c;
+      --accent:  #2e86de;
+      --bg:      #f8f9fa;
+      --white:   #ffffff;
+      --text:    #1f2937;
+      --muted:   #6b7280;
+      --border:  #e5e7eb;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: var(--primary);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+    }
+    .nav-logo {
+      color: var(--white);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .nav-logo span { color: #93c5fd; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(160deg, var(--primary) 0%, #1e5f8e 100%);
+      color: var(--white);
+      padding: 64px 24px 72px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(26px, 5vw, 42px);
+      font-weight: 800;
+      line-height: 1.2;
+      max-width: 640px;
+      margin: 0 auto 20px;
+    }
+    .hero p {
+      font-size: clamp(15px, 2.5vw, 18px);
+      color: #bfdbfe;
+      max-width: 540px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    /* ── Form ── */
+    .form-wrap {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .form-row {
+      display: flex;
+      gap: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .form-row input[type="email"] {
+      flex: 1;
+      padding: 14px 18px;
+      font-size: 15px;
+      border: none;
+      outline: none;
+      color: var(--text);
+      min-width: 0;
+    }
+    .form-row input[type="email"]::placeholder { color: #9ca3af; }
+    .form-row button {
+      padding: 14px 22px;
+      background: var(--accent);
+      color: var(--white);
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .form-row button:hover { background: #1a6fbf; }
+    .form-row button:disabled { background: #60a5fa; cursor: not-allowed; }
+
+    .form-msg {
+      margin-top: 12px;
+      font-size: 14px;
+      min-height: 20px;
+      text-align: center;
+    }
+    .form-msg.success { color: #86efac; }
+    .form-msg.error   { color: #fca5a5; }
+
+    /* ── Trust badges ── */
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 32px;
+    }
+    .badge {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #bfdbfe;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 999px;
+    }
+
+    /* ── Preview section ── */
+    .preview {
+      padding: 64px 24px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .preview-label {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .preview h2 {
+      text-align: center;
+      font-size: clamp(20px, 3vw, 26px);
+      color: var(--primary);
+      margin-bottom: 32px;
+    }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .card-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .pill {
+      display: inline-block;
+      background: #f0f0f0;
+      color: #555;
+      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 4px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .card-link {
+      font-size: 13px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .card-link:hover { text-decoration: underline; }
+
+    /* ── CTA bottom ── */
+    .cta-bottom {
+      background: var(--primary);
+      color: var(--white);
+      text-align: center;
+      padding: 48px 24px;
+    }
+    .cta-bottom p {
+      font-size: 18px;
+      color: #bfdbfe;
+      margin-bottom: 24px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: #111827;
+      color: #6b7280;
+      text-align: center;
+      font-size: 13px;
+      padding: 20px 24px;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 480px) {
+      .form-row { flex-direction: column; border-radius: 8px; }
+      .form-row input[type="email"],
+      .form-row button { border-radius: 0; width: 100%; }
+      .form-row input[type="email"] { border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-logo">📡 Edital<span>Radar</span></div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Nunca perca um edital de fomento</h1>
+    <p>Toda semana, as melhores oportunidades de financiamento público para startups, pesquisadores e pequenas empresas brasileiras — direto no seu email. Grátis.</p>
+
+    <div class="form-wrap">
+      <div class="form-row">
+        <input type="email" id="email-input" placeholder="seu@email.com" autocomplete="email" />
+        <button id="subscribe-btn" type="button">Quero receber grátis</button>
+      </div>
+      <div class="form-msg" id="form-msg"></div>
+    </div>
+
+    <div class="badges">
+      <span class="badge">📂 Fontes oficiais: FINEP, CNPq, FAPESP, BNDES</span>
+      <span class="badge">📅 Toda segunda-feira</span>
+      <span class="badge">✉️ Cancele quando quiser</span>
+    </div>
+  </section>
+
+  <!-- Preview -->
+  <section class="preview">
+    <div class="preview-label">Prévia da última edição</div>
+    <h2>Veja o que você receberia essa semana</h2>
+
+    <div class="card">
+      <div class="card-title">Finep Mais Inovação Brasil – Rodada 2 – Cadeias Agroindustriais Sustentáveis</div>
+      <div class="card-pills">
+        <span class="pill">Fonte: FINEP</span>
+        <span class="pill">Prazo: não informado</span>
+      </div>
+      <p class="card-desc">Chamada da FINEP voltada para inovação em cadeias agroindustriais sustentáveis. Busca fomentar projetos que desenvolvam soluções inovadoras para o agronegócio brasileiro com foco em sustentabilidade. Empresas e startups do setor agro devem acompanhar.</p>
+      <a class="card-link" href="https://www.finep.gov.br/chamadas-publicas/chamadapublica/774" target="_blank" rel="noopener">Ver edital &rarr;</a>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Chamada vai apoiar cooperações científicas sul-americanas sobre resistência antimicrobiana</div>
+      <div class="card-pills">
+        <span class="pill">Fonte: FAPESP</span>
+        <span class="pill">Prazo: não informado</span>
+      </div>
+      <p class="card-desc">Iniciativa conjunta da FAPESP com agências sul-americanas para pesquisas sobre resistência antimicrobiana. Conta com cofinanciamento do Uruguai, Paraguai, Argentina e Espírito Santo, além do apoio canadense. Pesquisadores de microbiologia e saúde pública devem ficar atentos.</p>
+      <a class="card-link" href="https://agencia.fapesp.br/chamada-vai-apoiar-cooperacoes-cientificas-sul-americanas-sobre-resistencia-antimicrobiana/57749" target="_blank" rel="noopener">Ver edital &rarr;</a>
+    </div>
+  </section>
+
+  <!-- CTA bottom -->
+  <section class="cta-bottom">
+    <p>Junte-se a quem não perde oportunidade de fomento.</p>
+    <div class="form-wrap" style="margin: 0 auto; max-width: 480px;">
+      <div class="form-row">
+        <input type="email" id="email-input-2" placeholder="seu@email.com" autocomplete="email" />
+        <button id="subscribe-btn-2" type="button">Quero receber grátis</button>
+      </div>
+      <div class="form-msg" id="form-msg-2"></div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    Edital Radar &copy; 2026 &middot; Feito com dados públicos
+  </footer>
+
+  <script>
+    async function subscribe(emailInput, btn, msgEl) {
+      const email = emailInput.value.trim();
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msgEl.textContent = "Por favor, insira um email válido.";
+        msgEl.className = "form-msg error";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Enviando…";
+      msgEl.textContent = "";
+      msgEl.className = "form-msg";
+
+      try {
+        const res = await fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          msgEl.textContent = "🎉 Inscrito! Você receberá a próxima edição na segunda-feira.";
+          msgEl.className = "form-msg success";
+          emailInput.value = "";
+          btn.textContent = "Inscrito ✓";
+        } else {
+          throw new Error(data.error || "Algo deu errado. Tente novamente.");
+        }
+      } catch (err) {
+        msgEl.textContent = err.message;
+        msgEl.className = "form-msg error";
+        btn.disabled = false;
+        btn.textContent = "Quero receber grátis";
+      }
+    }
+
+    document.getElementById("subscribe-btn").addEventListener("click", () => {
+      subscribe(
+        document.getElementById("email-input"),
+        document.getElementById("subscribe-btn"),
+        document.getElementById("form-msg")
+      );
+    });
+
+    document.getElementById("email-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("subscribe-btn").click();
+    });
+
+    document.getElementById("subscribe-btn-2").addEventListener("click", () => {
+      subscribe(
+        document.getElementById("email-input-2"),
+        document.getElementById("subscribe-btn-2"),
+        document.getElementById("form-msg-2")
+      );
+    });
+
+    document.getElementById("email-input-2").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("subscribe-btn-2").click();
+    });
+  </script>
+
+</body>
+</html>
